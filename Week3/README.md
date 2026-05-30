@@ -85,3 +85,4 @@ Week3/
 | Tasks | JS validation, frontend pages, PHP basics, DB |
 | Pages built | Homepage, Login, Register, Products |
 | Next week | PHP backend, sessions, cart processing |
+Updated by muleiesther8
