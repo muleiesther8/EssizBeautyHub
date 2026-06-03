@@ -1,138 +1,140 @@
 <?php
-// ============================================================
-// ESSIZ BEAUTY HUB — Week 4 Customer Orders
-// BIT3208 Advanced Web Design and Development
-// File: orders.php
-// ============================================================
-
+session_start();
 require_once '../includes/db_connect.php';
 require_once '../includes/session.php';
 
+requireAdmin();
 
-requireLogin();
+$message = '';
 
-$user_id = $_SESSION['user_id'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['order_id'])) {
+    $order_id   = (int)$_POST['order_id'];
+    $new_status = $_POST['order_status'];
+    $allowed    = ['Pending', 'Packed', 'On the way', 'Delivered'];
 
-// Fetch user orders
-$orders_query = "
-    SELECT o.order_id, o.total_amount, o.order_status, o.payment_method, o.delivery_location, o.created_at,
+    if (in_array($new_status, $allowed)) {
+        $stmt = mysqli_prepare($conn, "UPDATE orders SET order_status = ? WHERE order_id = ?");
+        mysqli_stmt_bind_param($stmt, "si", $new_status, $order_id);
+        mysqli_stmt_execute($stmt) ? $message = 'Order status updated!' : $message = 'Update failed.';
+    }
+}
+
+$orders_result = mysqli_query($conn, "
+    SELECT o.*, u.full_name, u.email, u.phone_number,
            COUNT(oi.item_id) as item_count
     FROM orders o
+    JOIN users u ON o.user_id = u.user_id
     LEFT JOIN order_items oi ON o.order_id = oi.order_id
-    WHERE o.user_id = $user_id
     GROUP BY o.order_id
     ORDER BY o.created_at DESC
-";
-$orders_result = mysqli_query($conn, $orders_query);
+");
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Essiz Beauty Hub — My Orders</title>
+  <title>Essiz Beauty Hub — Admin Orders</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/style.css">
 </head>
-<body>
+<body class="admin-body">
 
-<nav class="navbar" id="navbar">
-  <div class="nav-container">
-    <a href="index.php" class="nav-brand"><span class="brand-star">✦</span> Essiz Beauty Hub</a>
-    <ul class="nav-links">
-      <li><a href="index.php">Home</a></li>
-      <li><a href="products.php">Products</a></li>
-      <li><a href="cart.php">Cart</a></li>
-      <li><a href="dashboard.php">Dashboard</a></li>
-      <li><a href="orders.php" class="active">My Orders</a></li>
-      <li><a href="logout.php" class="btn-nav">Logout</a></li>
-    </ul>
-  </div>
-</nav>
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="admin-brand"><span>✦</span> Essiz Admin</div>
+    <nav class="admin-nav">
+      <a href="dashboard.php"  class="admin-nav-link">📊 Dashboard</a>
+      <a href="products.php"   class="admin-nav-link">💄 Products</a>
+      <a href="orders.php"     class="admin-nav-link active">📦 Orders</a>
+      <a href="users.php"      class="admin-nav-link">👥 Users</a>
+      <a href="../index.php"   class="admin-nav-link">🏠 View Site</a>
+      <a href="../logout.php"  class="admin-nav-link admin-logout">🚪 Logout</a>
+    </nav>
+  </aside>
 
-<div class="page-header">
-  <div class="container">
-    <h1>📦 My Orders</h1>
-    <p>Track and manage your orders</p>
-  </div>
+  <main class="admin-main">
+    <div class="admin-header">
+      <div>
+        <h1>Manage Orders</h1>
+        <p>View and update customer orders</p>
+      </div>
+    </div>
+
+    <?php if ($message): ?>
+      <div class="form-message form-message--success">✓ <?php echo $message; ?></div>
+    <?php endif; ?>
+
+    <div class="admin-table-card">
+      <div class="admin-table-header">
+        <h3>All Orders (<?php echo mysqli_num_rows($orders_result); ?>)</h3>
+      </div>
+      <div class="table-wrapper">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Payment</th>
+              <th>Delivery Location</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Update Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if (mysqli_num_rows($orders_result) > 0):
+              while ($order = mysqli_fetch_assoc($orders_result)):
+                $status_class = [
+                  'Pending'    => 'status--pending',
+                  'Packed'     => 'status--packed',
+                  'On the way' => 'status--shipping',
+                  'Delivered'  => 'status--delivered',
+                ][$order['order_status']] ?? '';
+            ?>
+            <tr>
+              <td><strong>#<?php echo $order['order_id']; ?></strong></td>
+              <td>
+                <strong><?php echo htmlspecialchars($order['full_name']); ?></strong><br>
+                <span style="font-size:11px;color:var(--charcoal-light);"><?php echo htmlspecialchars($order['email']); ?></span>
+              </td>
+              <td><?php echo htmlspecialchars($order['phone_number'] ?? '—'); ?></td>
+              <td><?php echo $order['item_count']; ?> items</td>
+              <td><strong>KES <?php echo number_format($order['total_amount']); ?></strong></td>
+              <td><?php echo htmlspecialchars($order['payment_method']); ?></td>
+              <td style="max-width:160px;font-size:12px;"><?php echo htmlspecialchars($order['delivery_location']); ?></td>
+              <td><span class="status-badge <?php echo $status_class; ?>"><?php echo $order['order_status']; ?></span></td>
+              <td><?php echo date('d M Y', strtotime($order['created_at'])); ?></td>
+              <td>
+                <form method="POST" action="orders.php" style="display:flex;gap:6px;align-items:center;">
+                  <input type="hidden" name="order_id" value="<?php echo $order['order_id']; ?>">
+                  <select name="order_status" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);outline:none;cursor:pointer;">
+                    <?php foreach(['Pending','Packed','On the way','Delivered'] as $s): ?>
+                      <option value="<?php echo $s; ?>" <?php echo $order['order_status'] === $s ? 'selected' : ''; ?>>
+                        <?php echo $s; ?>
+                      </option>
+                    <?php endforeach; ?>
+                  </select>
+                  <button type="submit" class="btn-sm">Update</button>
+                </form>
+              </td>
+            </tr>
+            <?php endwhile; else: ?>
+            <tr>
+              <td colspan="10" style="text-align:center;color:#888;padding:40px;">No orders yet</td>
+            </tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
 </div>
 
-<div class="container orders-layout">
-
-  <?php if (mysqli_num_rows($orders_result) > 0): ?>
-
-    <?php while ($order = mysqli_fetch_assoc($orders_result)):
-      $status_class = [
-        'Pending'    => 'status--pending',
-        'Packed'     => 'status--packed',
-        'On the way' => 'status--shipping',
-        'Delivered'  => 'status--delivered',
-      ][$order['order_status']] ?? '';
-      
-      $timeline_steps = ['Pending', 'Packed', 'On the way', 'Delivered'];
-      $current_index = array_search($order['order_status'], $timeline_steps);
-    ?>
-
-    <div class="order-card">
-      <div class="order-card-header">
-        <div>
-          <div class="order-id">Order #<?php echo $order['order_id']; ?></div>
-          <div class="order-date"><?php echo date('d M Y, H:i', strtotime($order['created_at'])); ?></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:16px;">
-          <div class="order-amount">KES <?php echo number_format($order['total_amount']); ?></div>
-          <span class="status-badge <?php echo $status_class; ?>"><?php echo $order['order_status']; ?></span>
-        </div>
-      </div>
-
-      <!-- Order Timeline -->
-      <div class="order-timeline">
-        <?php foreach ($timeline_steps as $idx => $step): ?>
-          <div class="timeline-step <?php echo $idx <= $current_index ? 'active' : ''; ?> <?php echo $idx < $current_index ? 'completed' : ''; ?>">
-            <div class="timeline-dot">
-              <?php 
-                if ($idx < $current_index) echo '✓';
-                else echo ($idx === 0 ? '📋' : ($idx === 1 ? '📦' : ($idx === 2 ? '🚚' : '✓')));
-              ?>
-            </div>
-            <div class="timeline-label"><?php echo $step; ?></div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-
-      <!-- Order Details -->
-      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
-        <p><strong>Items:</strong> <?php echo $order['item_count']; ?> product(s)</p>
-        <p><strong>Delivery Location:</strong> <?php echo htmlspecialchars($order['delivery_location']); ?></p>
-        <p><strong>Payment Method:</strong> <?php echo htmlspecialchars($order['payment_method']); ?></p>
-        <a href="#" style="color:var(--pink);font-size:13px;margin-top:10px;display:inline-block;">View Details →</a>
-      </div>
-    </div>
-
-    <?php endwhile; ?>
-
-  <?php else: ?>
-
-    <div style="text-align:center;padding:80px 24px;">
-      <div style="font-size:64px;margin-bottom:16px;">📦</div>
-      <h2 style="font-family:var(--font-display);font-size:28px;margin-bottom:8px;">No orders yet</h2>
-      <p style="color:var(--charcoal-light);margin-bottom:24px;">Start shopping and your orders will appear here.</p>
-      <a href="products.php" class="btn-primary">Start Shopping</a>
-    </div>
-
-  <?php endif; ?>
-
-</div>
-
-<footer class="footer">
-  <div class="container">
-    <div class="footer-bottom">
-      <p>© <?php echo date('Y'); ?> Essiz Beauty Hub — BIT3208 Advanced Web Design and Development</p>
-    </div>
-  </div>
-</footer>
-
-<script src="../js/main.js"></script>
 </body>
 </html>

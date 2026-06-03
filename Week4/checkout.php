@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
     <?php endif; ?>
     <div class="success-actions">
-      <a href="orders.php" class="btn-primary">Track My Order</a>
+            <a href="orders.php" class="btn-primary">Track My Order</a>
       <a href="products.php" class="btn-outline">Continue Shopping</a>
     </div>
   </div>
