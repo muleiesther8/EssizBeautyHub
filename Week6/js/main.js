@@ -292,6 +292,65 @@ function closeBundle() {
   if (modal) modal.classList.remove('open');
   document.body.style.overflow = '';
 }
+
+// ============================================================
+// WEEK 6 — LIVE SEARCH (AJAX)
+// ============================================================
+function initLiveSearch() {
+  const searchInput = document.getElementById('liveSearch');
+  const dropdown    = document.getElementById('searchDropdown');
+  if (!searchInput || !dropdown) return;
+
+  let timeout;
+  searchInput.addEventListener('input', function () {
+    const query = this.value.trim();
+    clearTimeout(timeout);
+
+    if (query.length < 2) {
+      dropdown.classList.remove('open');
+      dropdown.innerHTML = '';
+      return;
+    }
+
+    timeout = setTimeout(function () {
+      fetch('search.php?q=' + encodeURIComponent(query))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          dropdown.innerHTML = '';
+          if (data.length === 0) {
+            dropdown.innerHTML = '<div class="search-no-results">No products found for "' + query + '"</div>';
+          } else {
+            data.forEach(function(product) {
+              const item = document.createElement('a');
+              item.href = 'product_detail.php?id=' + product.product_id;
+              item.className = 'search-result-item';
+              item.innerHTML =
+                '<div class="search-result-icon">' + product.icon + '</div>' +
+                '<div class="search-result-info">' +
+                  '<div class="search-result-name">' + product.name + '</div>' +
+                  '<div class="search-result-category">' + product.category + '</div>' +
+                '</div>' +
+                '<div class="search-result-price">KES ' + product.price + '</div>';
+              dropdown.appendChild(item);
+            });
+          }
+          dropdown.classList.add('open');
+        })
+        .catch(function() {
+          dropdown.classList.remove('open');
+        });
+    }, 300);
+  });
+
+  // Close on outside click
+  document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initLiveSearch);
 // ============================================================
 // DARK MODE TOGGLE
 // ============================================================

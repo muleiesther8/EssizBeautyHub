@@ -72,6 +72,9 @@ $products = mysqli_query($conn, "SELECT * FROM products ORDER BY created_at DESC
   <aside class="admin-sidebar">
     <div class="admin-brand"><span>✦</span> Essiz Admin</div>
     <nav class="admin-nav">
+      <li>
+  <button class="dark-toggle" id="darkToggle" title="Toggle Dark Mode">🌙</button>
+</li>
       <a href="dashboard.php" class="admin-nav-link">📊 Dashboard</a>
       <a href="products.php"  class="admin-nav-link active">💄 Products</a>
       <a href="orders.php"    class="admin-nav-link">📦 Orders</a>
@@ -79,11 +82,6 @@ $products = mysqli_query($conn, "SELECT * FROM products ORDER BY created_at DESC
       <a href="reviews.php"   class="admin-nav-link">⭐ Reviews</a>
       <a href="../index.php"  class="admin-nav-link">🏠 View Site</a>
       <a href="../logout.php" class="admin-nav-link admin-logout">🚪 Logout</a>
-      <!-- Dark Mode Toggle -->
-  <div style="padding:16px 20px;margin-top:auto;">
-    <button class="dark-toggle" id="darkToggle" style="width:100%;">🌙 Dark Mode</button>
-  </div>
-</nav>
     </nav>
   </aside>
   <main class="admin-main">

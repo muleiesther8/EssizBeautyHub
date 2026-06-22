@@ -75,7 +75,7 @@ Week5/
 │   ├── db_connect.php
 │   └── session.php
 ├── database/
-│   └── essizdb_w5.sql
+│   └── essizdb_w6.sql
 └── README.md
 ```
 
