@@ -112,7 +112,7 @@ $total = mysqli_num_rows($products_result);
            data-name="<?php echo strtolower($p['name']); ?>">
         <div class="product-image">
           <div class="product-icon"><?php echo $icon; ?></div>
-          <button class="wishlist-btn">♡</button>
+          <a href="wishlist.php?add=<?php echo $p['product_id']; ?>" class="wishlist-btn" title="Add to Wishlist">♡</a>
         </div>
         <div class="product-info">
           <span class="product-category"><?php echo $p['category']; ?></span>

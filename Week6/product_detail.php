@@ -1,12 +1,13 @@
 <?php
 // ============================================================
-// ESSIZ BEAUTY HUB — Week 5 Product Detail + Reviews
+// ESSIZ BEAUTY HUB — Week 6 Product Detail + Reviews
 // BIT3208 Advanced Web Design and Development
 // File: product_detail.php
 // ============================================================
 session_start();
 require_once 'includes/db_connect.php';
 require_once 'includes/session.php';
+require_once 'includes/functions.php';
 
 $product_id = (int)($_GET['id'] ?? 0);
 if (!$product_id) { header('Location: products.php'); exit(); }
@@ -18,8 +19,11 @@ mysqli_stmt_execute($stmt);
 $product = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 if (!$product) { header('Location: products.php'); exit(); }
 
-$icons = ['Skincare'=>'🧴','Makeup'=>'💄','Haircare'=>'💆','Perfumes'=>'🌸','Accessories'=>'🪞'];
-$icon  = $icons[$product['category']] ?? '✨';
+$icon  = getProductIcon($product['category']);
+$stars = getStars($product['rating']);
+
+// Check if in wishlist
+$in_wishlist = isLoggedIn() ? isInWishlist($conn, $_SESSION['user_id'], $product_id) : false;
 
 // Submit review
 $review_message = '';
@@ -28,7 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isLoggedIn()) {
     $comment = trim($_POST['comment'] ?? '');
     $uid     = $_SESSION['user_id'];
 
-    // Check if already reviewed
     $check = mysqli_prepare($conn, "SELECT review_id FROM reviews WHERE user_id = ? AND product_id = ?");
     mysqli_stmt_bind_param($check, "ii", $uid, $product_id);
     mysqli_stmt_execute($check);
@@ -40,11 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isLoggedIn()) {
         $ins = mysqli_prepare($conn, "INSERT INTO reviews (user_id, product_id, rating, comment) VALUES (?,?,?,?)");
         mysqli_stmt_bind_param($ins, "iiis", $uid, $product_id, $rating, $comment);
         if (mysqli_stmt_execute($ins)) {
-            // Update product rating
-            $avg = mysqli_fetch_assoc(mysqli_query($conn, "SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE product_id = $product_id"));
+            $avg = mysqli_fetch_assoc(mysqli_query($conn,
+                "SELECT AVG(rating) as avg, COUNT(*) as cnt FROM reviews WHERE product_id = $product_id"
+            ));
             $new_rating = round($avg['avg'], 1);
             $new_count  = $avg['cnt'];
-            mysqli_query($conn, "UPDATE products SET rating = $new_rating, review_count = $new_count WHERE product_id = $product_id");
+            mysqli_query($conn, "UPDATE products SET rating=$new_rating, review_count=$new_count WHERE product_id=$product_id");
             $product['rating']       = $new_rating;
             $product['review_count'] = $new_count;
             $review_message = 'success';
@@ -66,6 +70,9 @@ $related = mysqli_query($conn, "
     WHERE category = '{$product['category']}' AND product_id != $product_id
     ORDER BY rating DESC LIMIT 4
 ");
+
+$cart_count = isLoggedIn() ? getCartCount($conn, $_SESSION['user_id']) : 0;
+$wish_count = isLoggedIn() ? getWishlistCount($conn, $_SESSION['user_id']) : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -81,14 +88,13 @@ $related = mysqli_query($conn, "
 <nav class="navbar" id="navbar">
   <div class="nav-container">
     <a href="index.php" class="nav-brand"><span class="brand-star">✦</span> Essiz Beauty Hub</a>
-    <ul class="nav-links">
-      <li>
-  <button class="dark-toggle" id="darkToggle" title="Toggle Dark Mode">🌙</button>
-</li>
+    <ul class="nav-links" id="navLinks">
+      <li><button class="dark-toggle" id="darkToggle" title="Toggle Dark Mode">🌙</button></li>
       <li><a href="index.php">Home</a></li>
       <li><a href="products.php">Products</a></li>
       <?php if (isLoggedIn()): ?>
-        <li><a href="cart.php">Cart</a></li>
+        <li><a href="wishlist.php">Wishlist ❤️ <span class="cart-badge"><?php echo $wish_count; ?></span></a></li>
+        <li><a href="cart.php">Cart <span class="cart-badge"><?php echo $cart_count; ?></span></a></li>
         <li><a href="dashboard.php">My Account</a></li>
         <li><a href="logout.php" class="btn-nav">Logout</a></li>
       <?php else: ?>
@@ -125,10 +131,12 @@ $related = mysqli_query($conn, "
     <!-- Product Info -->
     <div class="product-detail-info">
       <span class="product-category"><?php echo $product['category']; ?></span>
-      <h1 style="font-family:var(--font-display);font-size:36px;font-weight:400;margin:8px 0;"><?php echo htmlspecialchars($product['name']); ?></h1>
+      <h1 style="font-family:var(--font-display);font-size:36px;font-weight:400;margin:8px 0;">
+        <?php echo htmlspecialchars($product['name']); ?>
+      </h1>
 
       <div class="product-rating" style="margin-bottom:16px;">
-        <span class="stars" style="font-size:20px;"><?php echo str_repeat('★', round($product['rating'])) . str_repeat('☆', 5 - round($product['rating'])); ?></span>
+        <span class="stars" style="font-size:20px;"><?php echo $stars; ?></span>
         <span style="font-size:18px;font-weight:600;color:var(--charcoal);margin-left:8px;"><?php echo $product['rating']; ?></span>
         <span style="font-size:14px;color:var(--charcoal-light);">(<?php echo $product['review_count']; ?> reviews)</span>
       </div>
@@ -148,10 +156,19 @@ $related = mysqli_query($conn, "
       </div>
 
       <div style="display:flex;gap:12px;margin-top:28px;flex-wrap:wrap;">
-        <a href="cart.php?add=<?php echo $product['product_id']; ?>" class="btn-primary" style="flex:1;text-align:center;">
-          🛒 Add to Cart
-        </a>
-        <a href="routine_builder.php" class="btn-outline">+ Add to Routine</a>
+        <?php if (isLoggedIn()): ?>
+          <a href="cart.php?add=<?php echo $product['product_id']; ?>" class="btn-primary" style="flex:1;text-align:center;">
+            🛒 Add to Cart
+          </a>
+          <a href="wishlist.php?add=<?php echo $product['product_id']; ?>"
+             class="btn-outline <?php echo $in_wishlist ? 'wishlist-active' : ''; ?>"
+             style="<?php echo $in_wishlist ? 'background:var(--pink);color:white;' : ''; ?>">
+            <?php echo $in_wishlist ? '❤️ Wishlisted' : '♡ Wishlist'; ?>
+          </a>
+          <a href="routine_builder.php" class="btn-outline">+ Routine</a>
+        <?php else: ?>
+          <a href="login.php" class="btn-primary" style="flex:1;text-align:center;">Login to Buy</a>
+        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -162,7 +179,6 @@ $related = mysqli_query($conn, "
       Customer Reviews (<?php echo $product['review_count']; ?>)
     </h2>
 
-    <!-- Write Review -->
     <?php if (isLoggedIn()): ?>
       <?php if ($review_message === 'success'): ?>
         <div class="form-message form-message--success">✓ Review submitted successfully!</div>
@@ -205,7 +221,9 @@ $related = mysqli_query($conn, "
             <strong><?php echo htmlspecialchars($review['full_name']); ?></strong>
             <div class="stars" style="font-size:14px;"><?php echo $r_stars; ?></div>
           </div>
-          <span style="margin-left:auto;font-size:12px;color:var(--charcoal-light);"><?php echo date('d M Y', strtotime($review['created_at'])); ?></span>
+          <span style="margin-left:auto;font-size:12px;color:var(--charcoal-light);">
+            <?php echo timeAgo($review['created_at']); ?>
+          </span>
         </div>
         <p style="font-size:14px;color:var(--charcoal-mid);margin-top:10px;line-height:1.6;">
           <?php echo htmlspecialchars($review['comment']); ?>
@@ -223,18 +241,24 @@ $related = mysqli_query($conn, "
     <h2 style="font-family:var(--font-display);font-size:28px;font-weight:400;margin-bottom:24px;">Related Products</h2>
     <div class="products-grid">
       <?php while ($rp = mysqli_fetch_assoc($related)):
-        $r_icon  = $icons[$rp['category']] ?? '✨';
-        $r_stars = str_repeat('★', round($rp['rating'])) . str_repeat('☆', 5 - round($rp['rating']));
+        $r_icon  = getProductIcon($rp['category']);
+        $r_stars = getStars($rp['rating']);
       ?>
       <div class="product-card">
-        <div class="product-image"><div class="product-icon"><?php echo $r_icon; ?></div></div>
+        <div class="product-image">
+          <div class="product-icon"><?php echo $r_icon; ?></div>
+          <a href="wishlist.php?add=<?php echo $rp['product_id']; ?>" class="wishlist-btn" title="Add to Wishlist">♡</a>
+        </div>
         <div class="product-info">
           <span class="product-category"><?php echo $rp['category']; ?></span>
           <h3 class="product-name"><?php echo htmlspecialchars($rp['name']); ?></h3>
           <div class="product-rating"><span class="stars"><?php echo $r_stars; ?></span></div>
           <div class="product-footer">
             <span class="product-price">KES <?php echo number_format($rp['price']); ?></span>
-            <a href="product_detail.php?id=<?php echo $rp['product_id']; ?>" class="btn-cart">View</a>
+            <div style="display:flex;gap:6px;">
+              <a href="product_detail.php?id=<?php echo $rp['product_id']; ?>" class="btn-cart" style="background:var(--lavender);">View</a>
+              <a href="cart.php?add=<?php echo $rp['product_id']; ?>" class="btn-cart">+ Cart</a>
+            </div>
           </div>
         </div>
       </div>
