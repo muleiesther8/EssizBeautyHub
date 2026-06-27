@@ -1,27 +1,31 @@
 -- ============================================================
--- ESSIZ BEAUTY HUB — Week 6 Database
+-- ESSIZ BEAUTY HUB — Week 7 Database
 -- BIT3208 Advanced Web Design and Development
 -- Database: essizdb_w7
+-- Week 7: Advanced Security — CSRF, 2FA, Email Reset
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS essizdb_w6
+CREATE DATABASE IF NOT EXISTS essizdb_w7
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE essizdb_w7;
 
 CREATE TABLE IF NOT EXISTS users (
-  user_id        INT PRIMARY KEY AUTO_INCREMENT,
-  full_name      VARCHAR(100) NOT NULL,
-  email          VARCHAR(150) UNIQUE NOT NULL,
-  phone_number   VARCHAR(20),
-  password       VARCHAR(255) NOT NULL,
-  role           ENUM('admin','customer') DEFAULT 'customer',
-  skin_type      VARCHAR(50),
-  budget         ENUM('low','medium','high') DEFAULT 'medium',
-  bio            TEXT,
-  login_attempts INT DEFAULT 0,
-  locked_until   DATETIME DEFAULT NULL,
-  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  user_id            INT PRIMARY KEY AUTO_INCREMENT,
+  full_name          VARCHAR(100) NOT NULL,
+  email              VARCHAR(150) UNIQUE NOT NULL,
+  phone_number       VARCHAR(20),
+  password           VARCHAR(255) NOT NULL,
+  role               ENUM('admin','customer') DEFAULT 'customer',
+  skin_type          VARCHAR(50),
+  budget             ENUM('low','medium','high') DEFAULT 'medium',
+  bio                TEXT,
+  login_attempts     INT DEFAULT 0,
+  locked_until       DATETIME DEFAULT NULL,
+  two_factor_code    VARCHAR(10) DEFAULT NULL,
+  two_factor_expiry  DATETIME DEFAULT NULL,
+  two_factor_enabled TINYINT(1) DEFAULT 0,
+  created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -106,6 +110,16 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token_id   INT PRIMARY KEY AUTO_INCREMENT,
+  user_id    INT NOT NULL,
+  token      VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used       TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
 -- SAMPLE DATA
 INSERT INTO users (full_name, email, phone_number, password, role, skin_type, budget) VALUES
 ('Admin User',    'admin@essizbeautyhub.com',    '0734756300', 'placeholder', 'admin',    'Normal',      'high'),
@@ -125,11 +139,7 @@ INSERT INTO products (name, category, description, price, stock, skin_type, rati
 ('Nude Lip Gloss',        'Makeup',      'Glossy nude finish lip gloss',                       380.00, 50, 'All',       4.0,  9),
 ('Argan Hair Serum',      'Haircare',    'Frizz control and shine serum',                      890.00, 22, 'All',       4.5, 14),
 ('Rose Water Mist',       'Skincare',    'Refreshing hydrating face mist for sensitive skin',  480.00,  5, 'Sensitive', 4.3, 22),
-('SPF 50 Sunscreen',      'Skincare',    'Lightweight daily sun protection SPF50',            1100.00, 18, 'All',       4.9, 56),
-('Retinol Night Cream',   'Skincare',    'Anti-aging retinol cream for night use',            1800.00, 12, 'Dry',       4.6, 33),
-('Micellar Water 200ml',  'Skincare',    'Gentle makeup remover and cleanser',                 420.00, 28, 'Sensitive', 4.4, 17),
-('BB Cream SPF30',        'Makeup',      'Tinted moisturizer with sun protection',             780.00, 24, 'All',       4.3, 21),
-('Biotin Hair Vitamins',  'Haircare',    'Hair growth supplement vitamins',                    950.00, 16, 'All',       4.2, 13);
+('SPF 50 Sunscreen',      'Skincare',    'Lightweight daily sun protection SPF50',            1100.00, 18, 'All',       4.9, 56);
 
 INSERT INTO reviews (user_id, product_id, rating, comment) VALUES
 (2, 1, 5, 'This serum is amazing! My skin glows so much now.'),

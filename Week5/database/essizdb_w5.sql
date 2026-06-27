@@ -1,14 +1,14 @@
 -- ============================================================
 -- ESSIZ BEAUTY HUB — Week 5 Final Database
 -- BIT3208 Advanced Web Design and Development
--- Database: essizdb_w6
+-- Database: essizdb_w7
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS essizdb_w6
+CREATE DATABASE IF NOT EXISTS essizdb_w7
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
-USE essizdb_w6;
+USE essizdb_w7;
 
 CREATE TABLE IF NOT EXISTS users (
   user_id      INT PRIMARY KEY AUTO_INCREMENT,
