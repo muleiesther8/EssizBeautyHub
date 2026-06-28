@@ -1,0 +1,5 @@
+.env
+vendor/
+*.env
+Week7/.env
+Week7/vendor/
